@@ -1,0 +1,209 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+
+// ── WiFi Credentials (Wokwi simulated WiFi) ──
+#define WIFI_SSID     "Wokwi-GUEST"
+#define WIFI_PASSWORD ""
+
+// ── HiveMQ Cloud Credentials ──────────────────
+#define MQTT_BROKER   "901c27ee6c2948c6bf0bc9bbf5c1ac8d.s1.eu.hivemq.cloud"
+#define MQTT_PORT     8883
+#define MQTT_USER     "gasuser"
+#define MQTT_PASS     "Gaspass123"
+#define MQTT_CLIENT   "ESP32_GasMonitor"
+
+// ── MQTT Topics ───────────────────────────────
+#define TOPIC_LEVEL   "gas/level"
+#define TOPIC_STATUS  "gas/status"
+#define TOPIC_ALERT   "gas/alert"
+
+// ── Pin Definitions ───────────────────────────
+#define GAS_SENSOR_PIN  34
+#define BUZZER_PIN      25
+#define RED_LED_PIN     26
+#define GREEN_LED_PIN   27
+
+// ── Thresholds (PPM) ──────────────────────────
+#define SAFE_THRESHOLD     1500
+#define WARNING_THRESHOLD  2500
+#define DANGER_THRESHOLD   3500
+
+// ── LCD Setup ─────────────────────────────────
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// ── MQTT Setup ────────────────────────────────
+WiFiClientSecure espClient;
+PubSubClient mqttClient(espClient);
+
+// ── Variables ─────────────────────────────────
+int mappedPPM    = 0;
+String gasStatus = "";
+unsigned long lastPublish = 0;
+const long publishInterval = 2000;  // publish every 2 seconds
+
+// ─────────────────────────────────────────────
+// WiFi Connect
+// ─────────────────────────────────────────────
+void connectWiFi() {
+  Serial.print("Connecting to WiFi");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting WiFi");
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi Connected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  lcd.setCursor(0, 1);
+  lcd.print("WiFi Connected!");
+  delay(1500);
+}
+
+// ─────────────────────────────────────────────
+// MQTT Connect
+// ─────────────────────────────────────────────
+void connectMQTT() {
+  espClient.setInsecure();  // skip TLS cert verification for simulation
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+
+  Serial.print("Connecting to MQTT");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting MQTT");
+
+  while (!mqttClient.connected()) {
+    Serial.print(".");
+    if (mqttClient.connect(MQTT_CLIENT, MQTT_USER, MQTT_PASS)) {
+      Serial.println("\nMQTT Connected!");
+      lcd.setCursor(0, 1);
+      lcd.print("MQTT Connected!");
+      delay(1500);
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.println(mqttClient.state());
+      delay(2000);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+int readGasPPM() {
+  int raw = analogRead(GAS_SENSOR_PIN);
+  return map(raw, 0, 4095, 0, 5000);
+}
+
+String getStatus(int ppm) {
+  if (ppm < SAFE_THRESHOLD)    return "SAFE";
+  if (ppm < WARNING_THRESHOLD) return "WARNING";
+  if (ppm < DANGER_THRESHOLD)  return "DANGER";
+  return "CRITICAL";
+}
+
+void triggerAlerts(String status) {
+  if (status == "SAFE") {
+    digitalWrite(GREEN_LED_PIN, HIGH);
+    digitalWrite(RED_LED_PIN,   LOW);
+    noTone(BUZZER_PIN);
+  } else if (status == "WARNING") {
+    digitalWrite(GREEN_LED_PIN, LOW);
+    digitalWrite(RED_LED_PIN,   HIGH);
+    tone(BUZZER_PIN, 1000, 200);
+  } else if (status == "DANGER") {
+    digitalWrite(GREEN_LED_PIN, LOW);
+    digitalWrite(RED_LED_PIN,   HIGH);
+    tone(BUZZER_PIN, 2000, 500);
+  } else {
+    digitalWrite(GREEN_LED_PIN, LOW);
+    digitalWrite(RED_LED_PIN,   HIGH);
+    tone(BUZZER_PIN, 3000);
+  }
+}
+
+void updateLCD(int ppm, String status) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Gas: ");
+  lcd.print(ppm);
+  lcd.print(" PPM");
+  lcd.setCursor(0, 1);
+  lcd.print("Status: ");
+  lcd.print(status);
+}
+
+void publishData(int ppm, String status) {
+  // Publish PPM level
+  String ppmStr = String(ppm);
+  mqttClient.publish(TOPIC_LEVEL, ppmStr.c_str());
+
+  // Publish status
+  mqttClient.publish(TOPIC_STATUS, status.c_str());
+
+  // Publish alert only if not safe
+  if (status != "SAFE") {
+    String alert = "ALERT: " + status + " | " + String(ppm) + " PPM";
+    mqttClient.publish(TOPIC_ALERT, alert.c_str());
+  }
+
+  Serial.print("[MQTT Published] PPM: ");
+  Serial.print(ppm);
+  Serial.print(" | Status: ");
+  Serial.println(status);
+}
+
+// ─────────────────────────────────────────────
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(BUZZER_PIN,     OUTPUT);
+  pinMode(RED_LED_PIN,    OUTPUT);
+  pinMode(GREEN_LED_PIN,  OUTPUT);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Gas Leak Monitor");
+  lcd.setCursor(0, 1);
+  lcd.print(" Initializing...");
+  delay(2000);
+
+  connectWiFi();
+  connectMQTT();
+
+  Serial.println("=== System Ready ===");
+}
+
+// ─────────────────────────────────────────────
+void loop() {
+  // Keep MQTT connection alive
+  if (!mqttClient.connected()) {
+    connectMQTT();
+  }
+  mqttClient.loop();
+
+  // Read + process sensor
+  mappedPPM = readGasPPM();
+  gasStatus = getStatus(mappedPPM);
+
+  triggerAlerts(gasStatus);
+  updateLCD(mappedPPM, gasStatus);
+
+  // Publish every 2 seconds
+  unsigned long now = millis();
+  if (now - lastPublish >= publishInterval) {
+    lastPublish = now;
+    publishData(mappedPPM, gasStatus);
+  }
+
+  delay(500);
+}

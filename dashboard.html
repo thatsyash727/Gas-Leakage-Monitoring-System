@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gas Leakage Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #f2f2f7;
+      color: #1c1c1e;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1c1c1e;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #8e8e93;
+      margin-top: 3px;
+      font-weight: 400;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: white;
+      border-radius: 20px;
+      padding: 8px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      font-size: 13px;
+      font-weight: 500;
+      color: #1c1c1e;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34c759;
+      box-shadow: 0 0 0 3px rgba(52,199,89,0.2);
+      transition: all 0.3s ease;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07),
+                  0 1px 2px rgba(0,0,0,0.05);
+      border: 1px solid rgba(255,255,255,0.9);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8e8e93;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    /* ── Grid Layout ── */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Status Card ── */
+    .status-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 28px 20px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      border: 1px solid rgba(255,255,255,0.9);
+      transition: all 0.5s ease;
+    }
+
+    .status-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .status-value {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .ppm-value {
+      font-size: 17px;
+      font-weight: 500;
+      color: #3c3c43;
+    }
+
+    .ppm-unit {
+      font-size: 12px;
+      color: #8e8e93;
+      font-weight: 400;
+    }
+
+    /* ── Gauge ── */
+    .gauge-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Threshold Card ── */
+    .threshold-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f2f2f7;
+    }
+
+    .threshold-row:last-child { border-bottom: none; }
+
+    .threshold-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .threshold-name {
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .threshold-range {
+      font-size: 12px;
+      color: #8e8e93;
+      font-weight: 400;
+    }
+
+    /* ── Slider ── */
+    .slider-card { margin-bottom: 16px; }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      accent-color: #007aff;
+      border-radius: 10px;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .slider-labels span {
+      font-size: 11px;
+      font-weight: 500;
+      color: #8e8e93;
+    }
+
+    /* ── Chart ── */
+    .chart-card { margin-bottom: 16px; }
+
+    canvas {
+      width: 100% !important;
+      height: 160px !important;
+    }
+
+    /* ── Alert Log ── */
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .alert-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      margin-bottom: 6px;
+    }
+
+    .alert-time {
+      font-size: 11px;
+      color: #8e8e93;
+      min-width: 70px;
+      font-weight: 400;
+    }
+
+    .alert-msg {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .no-alerts {
+      text-align: center;
+      padding: 28px;
+      color: #c7c7cc;
+      font-size: 13px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 8px 18px;
+      border-radius: 20px;
+      border: none;
+      background: #007aff;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover { background: #0062cc; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #f2f2f7;
+      color: #8e8e93;
+    }
+
+    .btn-secondary:hover { background: #e5e5ea; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="title">Gas Leak Monitor</div>
+      <div class="subtitle">FPGA-Enabled IoT System · Wokwi + HiveMQ</div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot" id="liveDot"></div>
+      <span id="liveText">Monitoring Active</span>
+      <button class="btn" id="liveBtn"
+        onclick="toggleLive()"
+        style="margin-left:8px; padding:6px 14px; font-size:12px;">
+        ◉ Go Live
+      </button>
+    </div>
+  </div>
+
+  <!-- Row 1: Gauge, Status, Thresholds -->
+  <div class="grid-3">
+
+    <!-- Gauge -->
+    <div class="card gauge-card">
+      <div class="card-label">Gas Level</div>
+      <svg id="gauge" viewBox="0 0 220 160"
+        style="width:100%; max-width:240px;"></svg>
+    </div>
+
+    <!-- Status -->
+    <div class="status-card" id="statusCard">
+      <div class="status-icon" id="statusIcon">✅</div>
+      <div class="status-value" id="statusValue"
+        style="color:#34c759;">SAFE</div>
+      <div class="ppm-value" id="ppmBig">
+        320 <span class="ppm-unit">PPM</span>
+      </div>
+    </div>
+
+    <!-- Thresholds -->
+    <div class="card">
+      <div class="card-label">Thresholds</div>
+      <div class="threshold-row">
+        <div class="threshold-dot" style="background:#34c759;"></div>
+        <span class="threshold-name" style="color:#34c759;">Safe</span>
+        <span class="threshold-range">0 – 1,499 PPM</span>
+      </div>
+      <div class="threshold-row">
+        <div class="threshold-dot" style="background:#ff9f0a;"></div>
+        <span class="threshold-name" style="color:#ff9f0a;">Warning</span>
+        <span class="threshold-range">1,500 – 2,499 PPM</span>
+      </div>
+      <div class="threshold-row">
+        <div class="threshold-dot" style="background:#ff3b30;"></div>
+        <span class="threshold-name" style="color:#ff3b30;">Danger</span>
+        <span class="threshold-range">2,500 – 3,499 PPM</span>
+      </div>
+      <div class="threshold-row">
+        <div class="threshold-dot" style="background:#bf5af2;"></div>
+        <span class="threshold-name" style="color:#bf5af2;">Critical</span>
+        <span class="threshold-range">3,500+ PPM</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Simulator -->
+  <div class="card slider-card">
+    <div class="slider-header">
+      <div class="card-label" style="margin:0;">Simulate Gas Level</div>
+      <button class="btn" id="autoBtn"
+        onclick="toggleAuto()">▶ Auto Simulate</button>
+    </div>
+    <input type="range" min="0" max="5000"
+      value="320" id="gasSlider"
+      oninput="onSlider(this.value)" />
+    <div class="slider-labels">
+      <span>0</span>
+      <span>1,500</span>
+      <span>2,500</span>
+      <span>3,500</span>
+      <span>5,000</span>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card chart-card">
+    <div class="card-label">Real-Time History</div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Alert Log -->
+  <div class="card">
+    <div class="alert-header">
+      <div class="card-label" style="margin:0;">Alert Log</div>
+      <button class="btn btn-secondary"
+        onclick="clearAlerts()">Clear</button>
+    </div>
+    <div class="alert-list" id="alertList">
+      <div class="no-alerts" id="noAlerts">
+        No alerts — system nominal
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+
+    // ── Config ──────────────────────────────
+    const COLORS = {
+      SAFE:     { main:'#34c759', bg:'rgba(52,199,89,0.08)',   icon:'✅' },
+      WARNING:  { main:'#ff9f0a', bg:'rgba(255,159,10,0.08)',  icon:'⚠️' },
+      DANGER:   { main:'#ff3b30', bg:'rgba(255,59,48,0.08)',   icon:'🚨' },
+      CRITICAL: { main:'#bf5af2', bg:'rgba(191,90,242,0.08)',  icon:'☣️' },
+    };
+
+    const BROKER    = 'wss://901c27ee6c2948c6bf0bc9bbf5c1ac8d.s1.eu.hivemq.cloud:8884/mqtt';
+    const MQTT_USER = 'gasuser';
+    const MQTT_PASS = 'Gaspass123';
+
+    let currentPPM    = 320;
+    let currentStatus = 'SAFE';
+    let history       = Array(30).fill(320);
+    let alerts        = [];
+    let autoTimer     = null;
+    let autoT         = 0;
+    let mqttClient    = null;
+    let liveMode      = false;
+
+    // ── Status Logic ────────────────────────
+    function getStatus(ppm) {
+      if (ppm < 1500) return 'SAFE';
+      if (ppm < 2500) return 'WARNING';
+      if (ppm < 3500) return 'DANGER';
+      return 'CRITICAL';
+    }
+
+    // ── Update All UI ───────────────────────
+    function update(ppm) {
+      ppm = Math.max(0, Math.min(5000, Math.round(ppm)));
+      const status = getStatus(ppm);
+      const cfg    = COLORS[status];
+
+      currentPPM    = ppm;
+      currentStatus = status;
+
+      // Status card
+      document.getElementById('statusCard').style.background  = cfg.bg;
+      document.getElementById('statusIcon').textContent       = cfg.icon;
+      document.getElementById('statusValue').textContent      = status;
+      document.getElementById('statusValue').style.color      = cfg.main;
+      document.getElementById('ppmBig').innerHTML =
+        `${ppm} <span class="ppm-unit">PPM</span>`;
+
+      // Live dot
+      if (!liveMode) {
+        document.getElementById('liveDot').style.background = cfg.main;
+        document.getElementById('liveDot').style.boxShadow  =
+          `0 0 0 3px ${cfg.main}33`;
+      }
+
+      // Gauge
+      drawGauge(ppm, cfg.main);
+
+      // Slider accent
+      document.getElementById('gasSlider').style.accentColor = cfg.main;
+
+      // Chart
+      history.push(ppm);
+      if (history.length > 30) history.shift();
+      chart.data.datasets[0].data               = [...history];
+      chart.data.datasets[0].borderColor        = cfg.main;
+      chart.data.datasets[0].backgroundColor    = `${cfg.main}10`;
+      chart.data.datasets[0].pointBackgroundColor = cfg.main;
+      chart.update('none');
+
+      // Alerts
+      if (status !== 'SAFE') addAlert(ppm, status, cfg);
+    }
+
+    // ── Gauge SVG ───────────────────────────
+    function polar(cx, cy, r, deg) {
+      const rad = (deg - 90) * Math.PI / 180;
+      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+
+    function arcPath(cx, cy, r, a1, a2) {
+      const s   = polar(cx, cy, r, a1);
+      const e   = polar(cx, cy, r, a2);
+      const big = (a2 - a1) > 180 ? 1 : 0;
+      return `M ${s.x} ${s.y} A ${r} ${r} 0 ${big} 1 ${e.x} ${e.y}`;
+    }
+
+    function drawGauge(ppm, color) {
+      const pct    = ppm / 5000;
+      const cx=110, cy=110, r=80;
+      const start=150, end=390;
+      const valEnd = start + (end - start) * pct;
+      const needle = polar(cx, cy, 65, valEnd);
+
+      document.getElementById('gauge').innerHTML = `
+        <path d="${arcPath(cx,cy,r,start,end)}"
+          fill="none" stroke="#e5e5ea"
+          stroke-width="14" stroke-linecap="round"/>
+        ${ppm > 0 ? `<path d="${arcPath(cx,cy,r,start,valEnd)}"
+          fill="none" stroke="${color}"
+          stroke-width="14" stroke-linecap="round"/>` : ''}
+        <line x1="${cx}" y1="${cy}"
+          x2="${needle.x}" y2="${needle.y}"
+          stroke="${color}" stroke-width="3"
+          stroke-linecap="round" opacity="0.9"/>
+        <circle cx="${cx}" cy="${cy}" r="6"
+          fill="${color}" opacity="0.9"/>
+        <circle cx="${cx}" cy="${cy}" r="3"
+          fill="white"/>
+        <text x="${cx}" y="${cy+28}"
+          text-anchor="middle"
+          font-size="28" font-weight="700"
+          fill="${color}"
+          font-family="Inter, sans-serif">${ppm}</text>
+        <text x="${cx}" y="${cy+44}"
+          text-anchor="middle"
+          font-size="11" fill="#8e8e93"
+          font-family="Inter, sans-serif">PPM</text>
+        <text x="24"  y="150" font-size="9"
+          fill="#c7c7cc" font-family="Inter">0</text>
+        <text x="86"  y="22"  font-size="9"
+          fill="#c7c7cc" font-family="Inter">2500</text>
+        <text x="184" y="150" font-size="9"
+          fill="#c7c7cc" font-family="Inter">5000</text>
+      `;
+    }
+
+    // ── Chart.js ────────────────────────────
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array(30).fill(''),
+        datasets: [{
+          data: [...history],
+          borderColor: '#34c759',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.4,
+          fill: true,
+          backgroundColor: 'rgba(52,199,89,0.06)',
+          pointBackgroundColor: '#34c759',
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.raw} PPM` },
+            backgroundColor: 'white',
+            titleColor: '#1c1c1e',
+            bodyColor: '#1c1c1e',
+            borderColor: '#e5e5ea',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 10,
+          }
+        },
+        scales: {
+          x: { display: false },
+          y: {
+            min: 0, max: 5000,
+            grid: { color: '#f2f2f7', drawBorder: false },
+            ticks: {
+              color: '#c7c7cc',
+              font: { family: 'Inter', size: 10 },
+              stepSize: 1000,
+            },
+          }
+        }
+      }
+    });
+
+    // ── Alert Log ───────────────────────────
+    function addAlert(ppm, status, cfg) {
+      const now = new Date().toLocaleTimeString();
+      alerts.unshift({
+        time: now,
+        msg: `${status} — ${ppm} PPM`,
+        color: cfg.main,
+        bg: cfg.bg
+      });
+      if (alerts.length > 30) alerts.pop();
+      renderAlerts();
+    }
+
+    function renderAlerts() {
+      const list = document.getElementById('alertList');
+      const items = alerts.map(a => `
+        <div class="alert-item"
+          style="background:${a.bg};
+          border-left:3px solid ${a.color};">
+          <span class="alert-time">${a.time}</span>
+          <span class="alert-msg"
+            style="color:${a.color};">${a.msg}</span>
+        </div>`).join('');
+      list.innerHTML = items || `
+        <div class="no-alerts" id="noAlerts">
+          No alerts — system nominal
+        </div>`;
+    }
+
+    function clearAlerts() {
+      alerts = [];
+      renderAlerts();
+    }
+
+    // ── Slider ──────────────────────────────
+    function onSlider(val) {
+      stopAuto();
+      update(Number(val));
+    }
+
+    // ── Auto Simulate ────────────────────────
+    function toggleAuto() {
+      if (autoTimer) { stopAuto(); return; }
+      const btn = document.getElementById('autoBtn');
+      btn.textContent      = '◼ Stop';
+      btn.style.background = '#ff3b30';
+      autoTimer = setInterval(() => {
+        autoT += 0.06;
+        const v = 2500 + 2400 *
+          Math.sin(autoT) * Math.cos(autoT * 0.3);
+        const clamped = Math.max(0, Math.min(5000, Math.round(v)));
+        document.getElementById('gasSlider').value = clamped;
+        update(clamped);
+      }, 1200);
+    }
+
+    function stopAuto() {
+      clearInterval(autoTimer);
+      autoTimer = null;
+      const btn = document.getElementById('autoBtn');
+      btn.textContent      = '▶ Auto Simulate';
+      btn.style.background = '#007aff';
+    }
+
+    // ── MQTT Live ───────────────────────────
+    function toggleLive() {
+      if (liveMode) disconnectMQTT();
+      else connectMQTT();
+    }
+
+    function connectMQTT() {
+      const dot  = document.getElementById('liveDot');
+      const text = document.getElementById('liveText');
+      const btn  = document.getElementById('liveBtn');
+
+      text.textContent    = 'Connecting...';
+      dot.style.background = '#ff9f0a';
+      dot.style.boxShadow  = '0 0 0 3px rgba(255,159,10,0.3)';
+
+      mqttClient = mqtt.connect(BROKER, {
+        username:        MQTT_USER,
+        password:        MQTT_PASS,
+        clientId:        'GasDash_' + Date.now(),
+        reconnectPeriod: 3000,
+      });
+
+      mqttClient.on('connect', () => {
+        liveMode = true;
+        mqttClient.subscribe('gas/#');
+        text.textContent     = 'Live — Wokwi Connected';
+        dot.style.background  = '#34c759';
+        dot.style.boxShadow   = '0 0 0 3px rgba(52,199,89,0.3)';
+        btn.textContent       = '◼ Disconnect';
+        btn.style.background  = '#ff3b30';
+        stopAuto();
+        document.getElementById('gasSlider').disabled = true;
+        document.getElementById('autoBtn').disabled   = true;
+      });
+
+      mqttClient.on('message', (topic, payload) => {
+        if (topic === 'gas/level') {
+          const ppm = parseInt(payload.toString());
+          if (!isNaN(ppm)) {
+            document.getElementById('gasSlider').value = ppm;
+            update(ppm);
+          }
+        }
+      });
+
+      mqttClient.on('error', () => {
+        text.textContent     = 'Connection Failed — Retry?';
+        dot.style.background  = '#ff3b30';
+        dot.style.boxShadow   = '0 0 0 3px rgba(255,59,48,0.3)';
+      });
+
+      mqttClient.on('offline', () => {
+        text.textContent     = 'Reconnecting...';
+        dot.style.background  = '#ff9f0a';
+      });
+    }
+
+    function disconnectMQTT() {
+      if (mqttClient) mqttClient.end();
+      liveMode = false;
+      const dot  = document.getElementById('liveDot');
+      const text = document.getElementById('liveText');
+      const btn  = document.getElementById('liveBtn');
+      text.textContent     = 'Monitoring Active';
+      dot.style.background  = '#34c759';
+      dot.style.boxShadow   = '0 0 0 3px rgba(52,199,89,0.2)';
+      btn.textContent       = '◉ Go Live';
+      btn.style.background  = '#007aff';
+      document.getElementById('gasSlider').disabled = false;
+      document.getElementById('autoBtn').disabled   = false;
+    }
+
+    // ── Init ────────────────────────────────
+    update(320);
+
+  </script>
+</body>
+</html>
