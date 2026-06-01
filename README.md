@@ -69,6 +69,9 @@ Traditional monitoring systems may suffer from limited processing capabilities a
 🔋 Low Power Consumption
 
 ---
+## Circuit Setup
+
+![Circuit Diagram](circuit.png)
 
 ## 🏗️ System Architecture
 
